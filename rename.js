@@ -1,55 +1,50 @@
-// This runs per filter and exposure (within tolerance)
-// Extract the specific filter being integrated and how many active frames
-// Persist that information for renaming after autocrop
-if (env.name == "Integration" && env.event == "done") {
-	console.noteln("[RENAME] Integration complete --- Recording number of active frames");
-	if (env.group) {
-		let filterMatch = String(env.group).match(/filter\s*=\s*(\w+)/);
-		let frameMatch = String(env.group).match(/\((\d+)\s*active\)/);
-		if (frameMatch && filterMatch) {
-			let activeFrames = parseInt(frameMatch[1], 10);
-			let filter = filterMatch[1];
-			let filePath = engine.outputDirectory + "/custom/" + filter + ".txt";
-			
-			let file = new File();
-			file.createForWriting(filePath);
-			file.outText(activeFrames.toString());
-			file.close();
-		}
-	}
-}
+// Astrometric solutioning is the last step in the stacking pipeline. After thats is complete files will be renamed with additional info
+// Use the groups information to extract the active frames per Filter as well as the total exposure time
+// Add these to the generated file name
+if (env.name === "Astrometric solution" && env.event === "done") {
+	console.noteln("[RENAME] Solving done. Renaming files...");
 
-// This step renames all integrated (and cropped) files to add -STACKED_<number of frames> to filename
-// Opens the custom/<filter>.txt file generated during Integration to retrieve the number of frames
-// Moves the files to the new names
-if (env.name == "Autocrop" && env.event == "done") {
-	console.noteln("[RENAME] Autocropping done. Renaming files...");
+	//Filter -> [frames, total exposure]
+	let data = {
+		L: [0, 0],
+		R: [0, 0],
+		G: [0, 0],
+		B: [0, 0],
+		S: [0, 0],
+		H: [0, 0],
+		O: [0, 0]
+	}
+
+    let postGroups = engine.groupsManager.groupsForMode(WBPPGroupingMode.POST);
+    for ( let i = 0; i < postGroups.length; ++i ) {
+		let filter = postGroups[i].filter
+		let frameMatch = String(postGroups[i]).match(/\((\d+)\s*active\)/);
+		if (frameMatch && filter) {
+			data[filter][0] = parseInt(frameMatch[1], 10);
+		}
+		data[filter][1] = postGroups[i].totalExposureTime();
+    }
+
 	let filterRegex = /FILTER-([A-Za-z]+)/;
-	let L = new FileList(engine.outputDirectory + "/master", ["masterLight*.xisf"], false /*verbose*/ );
+	let L = new FileList(engine.outputDirectory + "/master", ["masterLight*.xisf"], false /*verbose*/);
 	L.files.forEach(filePath => {
 		let filterMatch = filePath.match(filterRegex);
 		if (filterMatch) {
 			let extractedFilter = filterMatch[1];
-			let stackedFramesFile = engine.outputDirectory + "/custom/" + extractedFilter + ".txt";
-			
-			let file = new File();
-			file.openForReading(stackedFramesFile);
-			let stacked = file.read(15, file.size);
-			file.close();
-						
-			if (stacked > 0) {				
-				let filterIndex = filePath.indexOf("_FILTER-");
-				let beforeFilter = filePath.substring(0, filterIndex);
-				let afterFilter = filePath.substring(filterIndex);
-				let newPath = beforeFilter + "_STACKED-" + stacked + afterFilter;
-				
-				if (File.exists(filePath)) {
-					File.move(filePath, newPath);
+			if (extractedFilter === env.group.filter) {
+				let stacked = data[extractedFilter][0];
+				let expTime = data[extractedFilter][1];
+				if (stacked > 0 && expTime > 0) {
+					let filterIndex = filePath.indexOf("_mono_");
+					let newPath = filePath.substring(0, filterIndex) + "_FRAMES-" + stacked + "_TOTAL-" + expTime + filePath.substring(filterIndex);
+					if (File.exists(filePath)) {
+						File.move(filePath, newPath);
+					} else {
+						console.noteln("[RENAME] file not found")
+					}
 				} else {
-					console.writeln("[RENAME] file not found");
+					console.noteln("[RENAME] Could not read stacked frames for: " + filePath);
 				}
-			} else {
-				console.noteln("[RENAME] Could not read stacked frames for: " + filePath);
 			}
 		}
 	})
