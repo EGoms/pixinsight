@@ -1,13 +1,13 @@
 secondsToHms = function (d) {
     d = Number(d);
-    var h = Math.floor(d / 3600);
-    var m = Math.floor(d % 3600 / 60);
-    var s = Math.floor(d % 3600 % 60);
+	let h = Math.floor(d / 3600);
+	let m = Math.floor(d % 3600 / 60);
+	let s = Math.floor(d % 3600 % 60);
 
-	var hDisplay = h > 0 ? h + "h" : "";
-    var mDisplay = m > 0 ? m + "m" : "";
-    var sDisplay = s > 0 ? s + "s" : "";
-    return hDisplay + mDisplay + sDisplay;
+	let hDisplay = h > 0 ? h + "h" : "";
+	let mDisplay = m > 0 ? m + "m" : "";
+	let sDisplay = s > 0 ? s + "s" : "";
+	return hDisplay + mDisplay + sDisplay;
 }
 
 generateExpStr = function (g) {
@@ -25,7 +25,7 @@ generateExpStr = function (g) {
 if (env.name === "Astrometric solution" && env.event === "done") {
 	console.noteln("[RENAME] Solving done. Renaming files...");
 
-	//Filter -> [frames, total exposure]
+	//Filter -> time string (# frames)
 	let times = {
 		L: "",
 		R: "",
